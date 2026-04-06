@@ -1,0 +1,90 @@
+name: DataForge-Env
+description: >
+  A production-grade OpenEnv environment for evaluating LLM-based agents
+  on data cleaning, validation, and multi-table reconciliation tasks.
+  Agents must reason over schema mismatches, missing values, duplicates,
+  type errors, and business-logic constraints to produce clean datasets.
+
+version: "1.0.0"
+
+tasks:
+  - id: easy
+    name: "The Untidy Retailer"
+    description: >
+      Clean a 1000-row customers dataset: fill 15% missing emails,
+      remove 5% duplicate rows, trim whitespace from name column.
+    max_steps: 15
+    difficulty: easy
+
+  - id: medium
+    name: "Financial Anomaly"
+    description: >
+      Clean a transactions dataset: cast dollar-formatted Amount to float,
+      unify mixed date formats, cap outlier amounts beyond 10 std-devs.
+    max_steps: 20
+    difficulty: medium
+
+  - id: hard
+    name: "Supply Chain Reconciliation"
+    description: >
+      Reconcile inventory_logs and warehouse_master: normalize SKU keys,
+      left-join tables, compute inventory_value, enforce non-negative stock.
+    max_steps: 25
+    difficulty: hard
+
+action_space:
+  type: structured
+  actions:
+    - action_type: fill_missing
+      params:
+        column: string
+        strategy: "mean | median | mode | constant | drop"
+        fill_value: any (optional, required when strategy=constant)
+    - action_type: drop_duplicates
+      params:
+        subset: list[string] (optional)
+    - action_type: cast_type
+      params:
+        column: string
+        target_dtype: "int | float | str | datetime"
+    - action_type: normalize
+      params:
+        column: string
+        method: "trim | lower | upper | strip_currency | unify_date"
+    - action_type: join
+      params:
+        right_table: string
+        left_on: string
+        right_on: string
+        how: "left | inner | right | outer"
+    - action_type: validate
+      params: {}
+
+observation_space:
+  type: structured
+  fields:
+    dataset_preview: "List[Dict] – top 5 rows of the current dataframe"
+    schema_info: "Dict[column_name, ColumnStats] – dtype, null_count, unique_count, mean, outliers_detected"
+    validation_errors: "List[str] – current integrity violations"
+    action_history: "List[str] – actions taken so far"
+    current_step: int
+    max_steps: int
+    progress_score: "float [0-1] – current cleanliness score"
+    dataset_size: int
+    progress_delta: float
+
+reward:
+  type: dense
+  range: [0.0, 1.0]
+  deterministic: true
+  formula: >
+    R = 0.3*C_schema + 0.2*C_nulls + 0.1*C_dupes + 0.4*C_logic - 0.01*step_penalty
+  failure_penalty: -1.0
+
+server:
+  entrypoint: server/app.py
+  endpoints:
+    - path: /reset
+      method: POST
+    - path: /step
+      method: POST
