@@ -19,7 +19,7 @@ def _safe_numeric(series: pd.Series) -> pd.Series:
     return pd.to_numeric(series, errors="coerce")
 
 def normalize_score(score: float) -> float:
-    return max(0.01, min(score, 0.99))
+    return max(0.01, min(float(score), 0.99))
 
 # ---------------------------------------------------------------------------
 # Component scores
@@ -196,20 +196,45 @@ def _extract_column_from_rule(rule: str, columns: pd.Index) -> str | None:
     return None
 
 
-# ---------------------------------------------------------------------------
-# Public grading API
-# ---------------------------------------------------------------------------
-
-def grade_task(
+def _unified_grade(
     current_df: pd.DataFrame,
     ground_truth_df: pd.DataFrame,
     constraints: List[str],
     target_schema: Dict[str, str] | None = None,
 ) -> float:
-    """Return a deterministic score in [0.01, 0.99]."""
-    schema_score = check_dtypes(current_df, ground_truth_df)
-    data_score = calculate_f1_similarity(current_df, ground_truth_df)
-    constraint_score = verify_business_rules(current_df, constraints, target_schema)
+    # Use the combined formula that env.py was using
+    c_schema = check_dtypes(current_df, ground_truth_df)
+    c_nulls = 1.0 - (current_df.isna().sum().sum() / max(current_df.size, 1))
+    c_dupes = 1.0 - (current_df.duplicated().sum() / max(len(current_df), 1))
+    c_logic = verify_business_rules(current_df, constraints, target_schema)
 
-    final = 0.2 * schema_score + 0.5 * data_score + 0.3 * constraint_score
+    final = 0.3 * c_schema + 0.2 * c_nulls + 0.1 * c_dupes + 0.4 * c_logic
+    return normalize_score(final)
+
+def grade_easy(
+    current_df: pd.DataFrame,
+    ground_truth_df: pd.DataFrame,
+    constraints: List[str],
+    target_schema: Dict[str, str] | None = None,
+) -> float:
+    return _unified_grade(current_df, ground_truth_df, constraints, target_schema)
+
+def grade_medium(
+    current_df: pd.DataFrame,
+    ground_truth_df: pd.DataFrame,
+    constraints: List[str],
+    target_schema: Dict[str, str] | None = None,
+) -> float:
+    return _unified_grade(current_df, ground_truth_df, constraints, target_schema)
+
+def grade_hard(
+    current_df: pd.DataFrame,
+    ground_truth_df: pd.DataFrame,
+    constraints: List[str],
+    target_schema: Dict[str, str] | None = None,
+) -> float:
+    data_score = calculate_f1_similarity(current_df, ground_truth_df)
+    c_schema = check_dtypes(current_df, ground_truth_df)
+    c_logic = verify_business_rules(current_df, constraints, target_schema)
+    final = 0.2 * c_schema + 0.5 * data_score + 0.3 * c_logic
     return normalize_score(final)
