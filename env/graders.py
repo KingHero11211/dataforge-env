@@ -205,4 +205,4 @@ def grade_task(
     constraint_score = verify_business_rules(current_df, constraints, target_schema)
 
     final = 0.2 * schema_score + 0.5 * data_score + 0.3 * constraint_score
-    return round(min(max(final, 0.0), 1.0), 4)
+    return round(min(max(final, 0.001), 0.999), 4)
