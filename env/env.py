@@ -300,29 +300,23 @@ class DataForgeEnv:
         main_df = self._dataframes.get("main", pd.DataFrame())
         gt_df = self._task.ground_truth_dataframes.get("main", pd.DataFrame())
 
-        from env.graders import check_dtypes, calculate_f1_similarity, verify_business_rules
-
-        c_schema = check_dtypes(main_df, gt_df)
-        c_nulls = normalize_score(1.0 - (main_df.isna().sum().sum() / max(main_df.size, 1)))
-        c_dupes = normalize_score(1.0 - (main_df.duplicated().sum() / max(len(main_df), 1)))
-        c_logic = verify_business_rules(main_df, self._task.business_rules, self._task.target_schema)
-
         step_penalty = 0.01
+        
+        raw: float = 0.01
+        if hasattr(self._task, "grader") and self._task.grader:
+            raw = self._task.grader(main_df, gt_df, self._task.business_rules, self._task.target_schema)
 
-        raw = (0.3 * c_schema + 0.2 * c_nulls + 0.1 * c_dupes + 0.4 * c_logic) - step_penalty
-        scalar = round(normalize_score(raw), 4)
+        raw = raw - step_penalty
+        scalar = normalize_score(raw)
 
         delta = round(scalar - self._prev_score, 4)
         self._prev_score = scalar
 
         components = {
-            "schema": round(c_schema, 4),
-            "nulls": round(c_nulls, 4),
-            "dupes": round(c_dupes, 4),
-            "logic": round(c_logic, 4),
+            "grader_score": round(raw + step_penalty, 4),
             "step_penalty": step_penalty,
         }
-        reasoning = error_msg if error_msg else f"Reward={scalar}, delta={delta}"
+        reasoning = error_msg if error_msg else f"Reward={scalar:.4f}, delta={delta:.4f}"
         return Reward(scalar=scalar, components=components, reasoning=reasoning)
 
     # ------------------------------------------------------------------
@@ -358,7 +352,12 @@ class DataForgeEnv:
 
         # Progress
         gt_df = self._task.ground_truth_dataframes.get("main", pd.DataFrame())
-        progress = grade_task(main_df, gt_df, self._task.business_rules, self._task.target_schema)
+        
+        progress = 0.01
+        if hasattr(self._task, "grader") and self._task.grader:
+            progress = self._task.grader(main_df, gt_df, self._task.business_rules, self._task.target_schema)
+            
+        progress = normalize_score(progress)
 
         return Observation(
             dataset_preview=preview,
