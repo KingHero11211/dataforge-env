@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from env.graders import grade_task
+from env.graders import grade_task, normalize_score
 from env.models import (
     Action,
     ActionType,
@@ -60,7 +60,7 @@ class DataForgeEnv:
             obs = self._build_observation()
             return StepResult(
                 observation=obs,
-                reward=Reward(scalar=0.0, components={}, reasoning="Episode already finished."),
+                reward=Reward(scalar=normalize_score(0.01), components={}, reasoning="Episode already finished."),
                 done=True,
                 info={"warning": "Episode already done."},
             )
@@ -295,12 +295,12 @@ class DataForgeEnv:
     def _compute_reward(self, error_msg: Optional[str]) -> Reward:
         assert self._task is not None
         if error_msg and "destructive" in error_msg.lower():
-            return Reward(scalar=0.0, components={"penalty": -1.0}, reasoning=error_msg)
+            return Reward(scalar=normalize_score(0.01), components={"penalty": -1.0}, reasoning=error_msg)
 
         main_df = self._dataframes.get("main", pd.DataFrame())
         gt_df = self._task.ground_truth_dataframes.get("main", pd.DataFrame())
 
-        from env.graders import check_dtypes, calculate_f1_similarity, verify_business_rules, normalize_score
+        from env.graders import check_dtypes, calculate_f1_similarity, verify_business_rules
 
         c_schema = check_dtypes(main_df, gt_df)
         c_nulls = normalize_score(1.0 - (main_df.isna().sum().sum() / max(main_df.size, 1)))
