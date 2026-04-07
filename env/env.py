@@ -300,17 +300,17 @@ class DataForgeEnv:
         main_df = self._dataframes.get("main", pd.DataFrame())
         gt_df = self._task.ground_truth_dataframes.get("main", pd.DataFrame())
 
-        from env.graders import check_dtypes, calculate_f1_similarity, verify_business_rules
+        from env.graders import check_dtypes, calculate_f1_similarity, verify_business_rules, normalize_score
 
         c_schema = check_dtypes(main_df, gt_df)
-        c_nulls = 1.0 - (main_df.isna().sum().sum() / max(main_df.size, 1))
-        c_dupes = 1.0 - (main_df.duplicated().sum() / max(len(main_df), 1))
+        c_nulls = normalize_score(1.0 - (main_df.isna().sum().sum() / max(main_df.size, 1)))
+        c_dupes = normalize_score(1.0 - (main_df.duplicated().sum() / max(len(main_df), 1)))
         c_logic = verify_business_rules(main_df, self._task.business_rules, self._task.target_schema)
 
         step_penalty = 0.01
 
         raw = (0.3 * c_schema + 0.2 * c_nulls + 0.1 * c_dupes + 0.4 * c_logic) - step_penalty
-        scalar = round(min(max(raw, 0.01), 0.99), 2)
+        scalar = round(normalize_score(raw), 4)
 
         delta = round(scalar - self._prev_score, 4)
         self._prev_score = scalar
