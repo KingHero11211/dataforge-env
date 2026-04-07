@@ -1,6 +1,6 @@
 """Deterministic grading for DataForge-Env.
 
-Every grader returns a float in [0, 1].  No randomness.
+Every grader returns a float strictly in (0, 1). No randomness.
 """
 
 from __future__ import annotations
@@ -18,6 +18,8 @@ import pandas as pd
 def _safe_numeric(series: pd.Series) -> pd.Series:
     return pd.to_numeric(series, errors="coerce")
 
+def normalize_score(score: float) -> float:
+    return max(0.01, min(score, 0.99))
 
 # ---------------------------------------------------------------------------
 # Component scores
@@ -26,7 +28,7 @@ def _safe_numeric(series: pd.Series) -> pd.Series:
 def check_dtypes(current: pd.DataFrame, ground_truth: pd.DataFrame) -> float:
     """Fraction of columns whose dtype category matches the ground-truth."""
     if ground_truth.empty:
-        return 1.0
+        return normalize_score(0.99)
     matches = 0
     total = 0
     for col in ground_truth.columns:
@@ -40,17 +42,19 @@ def check_dtypes(current: pd.DataFrame, ground_truth: pd.DataFrame) -> float:
             matches += 1
         elif gt_kind in ("i", "f") and cur_kind in ("i", "f"):
             matches += 1  # int/float are close enough
-    return matches / max(total, 1)
+    
+    score = matches / max(total, 1)
+    return normalize_score(score)
 
 
 def calculate_f1_similarity(current: pd.DataFrame, ground_truth: pd.DataFrame) -> float:
     """Row-level F1 between current and ground-truth (based on string hashing)."""
     if ground_truth.empty:
-        return 1.0
+        return normalize_score(0.99)
 
     common_cols = sorted(set(current.columns) & set(ground_truth.columns))
     if not common_cols:
-        return 0.0
+        return normalize_score(0.01)
 
     def _row_hashes(df: pd.DataFrame) -> set:
         sub = df[common_cols].fillna("__NULL__").astype(str)
@@ -60,7 +64,7 @@ def calculate_f1_similarity(current: pd.DataFrame, ground_truth: pd.DataFrame) -
     gt_hashes = _row_hashes(ground_truth)
 
     if not gt_hashes:
-        return 1.0
+        return normalize_score(0.99)
 
     tp = len(cur_hashes & gt_hashes)
     fp = len(cur_hashes - gt_hashes)
@@ -69,8 +73,10 @@ def calculate_f1_similarity(current: pd.DataFrame, ground_truth: pd.DataFrame) -
     precision = tp / max(tp + fp, 1)
     recall = tp / max(tp + fn, 1)
     if precision + recall == 0:
-        return 0.0
-    return 2 * precision * recall / (precision + recall)
+        return normalize_score(0.01)
+        
+    score = 2 * precision * recall / (precision + recall)
+    return normalize_score(score)
 
 
 def verify_business_rules(
@@ -80,7 +86,7 @@ def verify_business_rules(
 ) -> float:
     """Heuristic constraint checker.  Returns fraction of rules satisfied."""
     if not constraints:
-        return 1.0
+        return normalize_score(0.99)
 
     passed = 0
     for rule in constraints:
@@ -178,7 +184,8 @@ def verify_business_rules(
         # Fallback: count as passed if we can't parse
         passed += 0  # strict — unknown rules don't auto-pass
 
-    return passed / max(len(constraints), 1)
+    score = passed / max(len(constraints), 1)
+    return normalize_score(score)
 
 
 def _extract_column_from_rule(rule: str, columns: pd.Index) -> str | None:
@@ -199,10 +206,10 @@ def grade_task(
     constraints: List[str],
     target_schema: Dict[str, str] | None = None,
 ) -> float:
-    """Return a deterministic score in [0, 1]."""
+    """Return a deterministic score in [0.01, 0.99]."""
     schema_score = check_dtypes(current_df, ground_truth_df)
     data_score = calculate_f1_similarity(current_df, ground_truth_df)
     constraint_score = verify_business_rules(current_df, constraints, target_schema)
 
     final = 0.2 * schema_score + 0.5 * data_score + 0.3 * constraint_score
-    return round(min(max(final, 0.001), 0.999), 4)
+    return normalize_score(final)
