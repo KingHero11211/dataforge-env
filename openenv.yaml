@@ -16,9 +16,7 @@ tasks:
     max_steps: 15
     difficulty: easy
     graders:
-      - schema_match
-      - f1_similarity
-      - business_rules
+      - grade_easy
 
   - id: medium
     name: "Financial Anomaly"
@@ -28,9 +26,7 @@ tasks:
     max_steps: 20
     difficulty: medium
     graders:
-      - schema_match
-      - f1_similarity
-      - business_rules
+      - grade_medium
 
   - id: hard
     name: "Supply Chain Reconciliation"
@@ -40,9 +36,7 @@ tasks:
     max_steps: 25
     difficulty: hard
     graders:
-      - schema_match
-      - f1_similarity
-      - business_rules
+      - grade_hard
 
 action_space:
   type: structured
@@ -87,11 +81,10 @@ observation_space:
 
 reward:
   type: dense
-  range: [0.0, 1.0]
+  range: [0.01, 0.99]
   deterministic: true
   formula: >
     R = 0.3*C_schema + 0.2*C_nulls + 0.1*C_dupes + 0.4*C_logic - 0.01*step_penalty
-  failure_penalty: -1.0
 
 server:
   entrypoint: server/app.py
