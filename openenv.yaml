@@ -15,6 +15,10 @@ tasks:
       remove 5% duplicate rows, trim whitespace from name column.
     max_steps: 15
     difficulty: easy
+    graders:
+      - schema_match
+      - f1_similarity
+      - business_rules
 
   - id: medium
     name: "Financial Anomaly"
@@ -23,6 +27,10 @@ tasks:
       unify mixed date formats, cap outlier amounts beyond 10 std-devs.
     max_steps: 20
     difficulty: medium
+    graders:
+      - schema_match
+      - f1_similarity
+      - business_rules
 
   - id: hard
     name: "Supply Chain Reconciliation"
@@ -31,6 +39,10 @@ tasks:
       left-join tables, compute inventory_value, enforce non-negative stock.
     max_steps: 25
     difficulty: hard
+    graders:
+      - schema_match
+      - f1_similarity
+      - business_rules
 
 action_space:
   type: structured
