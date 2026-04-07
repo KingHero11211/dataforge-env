@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
+
+from env.graders import grade_easy, grade_medium, grade_hard
 
 
 # ---------------------------------------------------------------------------
@@ -26,6 +28,7 @@ class TaskDefinition:
     ground_truth_dataframes: Dict[str, pd.DataFrame] = field(default_factory=dict)
     target_schema: Dict[str, str] = field(default_factory=dict)
     business_rules: List[str] = field(default_factory=list)
+    grader: Optional[Callable[..., float]] = None
 
 
 # ===================================================================
@@ -85,6 +88,7 @@ def _build_easy_task() -> TaskDefinition:
     )
     task.dirty_dataframes["main"] = df
     task.ground_truth_dataframes["main"] = gt
+    task.grader = grade_easy
     return task
 
 
@@ -168,6 +172,7 @@ def _build_medium_task() -> TaskDefinition:
     )
     task.dirty_dataframes["main"] = df
     task.ground_truth_dataframes["main"] = gt
+    task.grader = grade_medium
     return task
 
 
@@ -255,6 +260,7 @@ def _build_hard_task() -> TaskDefinition:
     task.dirty_dataframes["main"] = logs
     task.dirty_dataframes["warehouse_master"] = master
     task.ground_truth_dataframes["main"] = gt_merged
+    task.grader = grade_hard
     return task
 
 
