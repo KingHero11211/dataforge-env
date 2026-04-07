@@ -162,8 +162,8 @@ def main():
         if done:
             break
 
-    total_score = sum(rewards) / len(rewards) if rewards else 0.0
-    total_score = min(max(total_score, 0.0), 1.0)
+    total_score = sum(rewards) / len(rewards) if rewards else 0.001
+    total_score = min(max(total_score, 0.001), 0.999)
 
     success = total_score >= 0.7
 
