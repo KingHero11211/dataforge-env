@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from env.graders import grade_task, normalize_score
+from env.graders import normalize_score
 from env.models import (
     Action,
     ActionType,
