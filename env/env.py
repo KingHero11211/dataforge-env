@@ -310,7 +310,7 @@ class DataForgeEnv:
         step_penalty = 0.01
 
         raw = (0.3 * c_schema + 0.2 * c_nulls + 0.1 * c_dupes + 0.4 * c_logic) - step_penalty
-        scalar = round(min(max(raw, 0.0), 1.0), 2)
+        scalar = round(min(max(raw, 0.01), 0.99), 2)
 
         delta = round(scalar - self._prev_score, 4)
         self._prev_score = scalar
