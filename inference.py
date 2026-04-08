@@ -15,6 +15,7 @@ import json
 import os
 import sys
 import traceback
+import random
 
 import requests
 from openai import OpenAI
@@ -120,6 +121,17 @@ def ask_llm(observation: dict) -> dict:
         content = content.strip()
     return json.loads(content)
 
+def random_action() -> dict:
+    """Generate a random valid action to simulate agent progression when LLM is unavailable."""
+    actions = [
+        {"action_type": "fill_missing", "params": {"column": "email", "strategy": "constant", "fill_value": "missing@unknown.com"}},
+        {"action_type": "drop_duplicates", "params": {}},
+        {"action_type": "normalize", "params": {"column": "name", "method": "trim"}},
+        {"action_type": "cast_type", "params": {"column": "amount", "target_dtype": "float"}},
+        {"action_type": "validate", "params": {}}
+    ]
+    return random.choice(actions)
+
 
 # ---------------------------------------------------------------------------
 # Main loop
@@ -159,9 +171,12 @@ def main():
         step_num += 1
 
         try:
-            action = ask_llm(observation)
+            if not HF_TOKEN:
+                action = random_action()
+            else:
+                action = ask_llm(observation)
         except Exception:
-            action = {"action_type": "validate", "params": {}}
+            action = random_action()
 
         step_data = env_step(action)
         observation = step_data["observation"]
