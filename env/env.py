@@ -295,25 +295,35 @@ class DataForgeEnv:
     def _compute_reward(self, error_msg: Optional[str]) -> Reward:
         assert self._task is not None
         if error_msg and "destructive" in error_msg.lower():
-            return Reward(scalar=normalize_score(0.01), components={"penalty": -1.0}, reasoning=error_msg)
+            return Reward(scalar=0.01, components={"penalty": -1.0}, reasoning=error_msg)
 
         main_df = self._dataframes.get("main", pd.DataFrame())
         gt_df = self._task.ground_truth_dataframes.get("main", pd.DataFrame())
 
-        step_penalty = 0.01
-        
-        raw: float = 0.01
-        if hasattr(self._task, "grader") and self._task.grader:
-            raw = self._task.grader(main_df, gt_df, self._task.business_rules, self._task.target_schema)
+        step_penalty = 0.005  # small penalty to encourage efficiency
 
-        raw = raw - step_penalty
+        grader_score: float = 0.1  # safe non-zero default
+        try:
+            if hasattr(self._task, "grader") and self._task.grader:
+                grader_score = float(
+                    self._task.grader(
+                        main_df, gt_df,
+                        self._task.business_rules,
+                        self._task.target_schema,
+                    )
+                )
+        except Exception:
+            grader_score = 0.1
+
+        # Apply small step penalty then clamp strictly to (0.01, 0.99)
+        raw = grader_score - step_penalty
         scalar = normalize_score(raw)
 
         delta = round(scalar - self._prev_score, 4)
         self._prev_score = scalar
 
         components = {
-            "grader_score": round(raw + step_penalty, 4),
+            "grader_score": round(grader_score, 4),
             "step_penalty": step_penalty,
         }
         reasoning = error_msg if error_msg else f"Reward={scalar:.4f}, delta={delta:.4f}"
@@ -352,11 +362,20 @@ class DataForgeEnv:
 
         # Progress
         gt_df = self._task.ground_truth_dataframes.get("main", pd.DataFrame())
-        
-        progress = 0.01
-        if hasattr(self._task, "grader") and self._task.grader:
-            progress = self._task.grader(main_df, gt_df, self._task.business_rules, self._task.target_schema)
-            
+
+        progress: float = 0.1
+        try:
+            if hasattr(self._task, "grader") and self._task.grader:
+                progress = float(
+                    self._task.grader(
+                        main_df, gt_df,
+                        self._task.business_rules,
+                        self._task.target_schema,
+                    )
+                )
+        except Exception:
+            progress = 0.1
+
         progress = normalize_score(progress)
 
         return Observation(

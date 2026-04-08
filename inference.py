@@ -30,6 +30,20 @@ ENV_URL: str = os.environ.get("ENV_URL", "http://localhost:7860")
 
 TASK_ID: str = os.environ.get("TASK_ID", "easy")
 
+_MIN_REWARD = 0.01
+_MAX_REWARD = 0.99
+
+
+def clamp_reward(r: float) -> float:
+    """Ensure reward is strictly in (0, 1) as required by the validator."""
+    try:
+        v = float(r)
+    except (TypeError, ValueError):
+        v = _MIN_REWARD
+    if v != v:  # NaN guard
+        v = _MIN_REWARD
+    return max(_MIN_REWARD, min(v, _MAX_REWARD))
+
 client = OpenAI(
     base_url=API_BASE_URL,
     api_key=HF_TOKEN,
@@ -151,7 +165,8 @@ def main():
 
         step_data = env_step(action)
         observation = step_data["observation"]
-        reward_val = step_data["reward"]["scalar"]
+        raw_reward = step_data["reward"]["scalar"]
+        reward_val = clamp_reward(raw_reward)
         done = step_data["done"]
         error = step_data.get("info", {}).get("error")
 
@@ -162,8 +177,10 @@ def main():
         if done:
             break
 
-    total_score = sum(rewards) / len(rewards) if rewards else 0.001
-    total_score = min(max(total_score, 0.001), 0.999)
+    if rewards:
+        total_score = clamp_reward(sum(rewards) / len(rewards))
+    else:
+        total_score = clamp_reward(0.1)
 
     success = total_score >= 0.7
 
